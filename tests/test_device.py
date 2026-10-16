@@ -3,10 +3,22 @@ import logging
 from time import time
 
 import pytest
+from homeassistant.const import CONF_HOST, CONF_NAME
 
 # from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
-from custom_components.tuya_local.const import CONF_DEVICE_ID, DOMAIN
-from custom_components.tuya_local.device import TuyaLocalDevice, async_delete_device
+from custom_components.tuya_local.const import (
+    CONF_DEVICE_ID,
+    CONF_LOCAL_KEY,
+    CONF_POLL_ONLY,
+    CONF_POLLING_INTERVAL,
+    CONF_PROTOCOL_VERSION,
+    DOMAIN,
+)
+from custom_components.tuya_local.device import (
+    TuyaLocalDevice,
+    async_delete_device,
+    setup_device,
+)
 
 from .const import EUROM_600_HEATER_PAYLOAD
 
@@ -681,6 +693,78 @@ async def test_async_receive(subject, mock_api, mocker):
     except StopAsyncIteration:
         pass
     mock_api().set_socketPersistent.assert_called_once_with(False)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("polling_interval,period", [(None, 30), (5, 5), (150, 150)])
+@pytest.mark.parametrize("forced_updates", [False, True])
+@pytest.mark.parametrize("poll_only", [False, True])
+async def test_configured_polling_interval(
+    patched_hass, mock_api, mocker, polling_interval, period, forced_updates, poll_only
+):
+    """Legacy and boundary intervals schedule polls in both connection modes.
+
+    Forced updates alternate with status; recent push data does not delay polls.
+    """
+    clock = [1000.0]
+
+    async def advance_clock(delay):
+        clock[0] += delay
+
+    mocker.patch(
+        "custom_components.tuya_local.device.time", side_effect=lambda: clock[0]
+    )
+    mocker.patch("custom_components.tuya_local.device.asyncio.sleep", advance_clock)
+    mock_api().parent = None
+    mock_api().status.side_effect = lambda: {"dps": {"1": "STATUS"}}
+    mock_api().updatedps.side_effect = lambda _dps: {"dps": {"1": "FORCED"}}
+    mock_api().receive.side_effect = lambda: {"1": "PUSH"}
+    config = {
+        CONF_NAME: "Test",
+        CONF_DEVICE_ID: "deviceid",
+        CONF_HOST: "hostname",
+        CONF_LOCAL_KEY: "test_key",
+        CONF_PROTOCOL_VERSION: 3.3,
+        CONF_POLL_ONLY: poll_only,
+    }
+    if polling_interval is not None:
+        config[CONF_POLLING_INTERVAL] = polling_interval
+    device = setup_device(patched_hass, config)
+    device._api_protocol_version_index = 0
+    device._api_protocol_working = True
+    device._running = True
+    # Model an established connection with a recent poll and cached state.
+    device._last_full_poll = clock[0]
+    device._cached_state = {"1": "INITIAL", "updated_at": clock[0]}
+    if forced_updates:
+        device._force_dps = [20]
+    loop = device.async_receive()
+    try:
+        clock[0] = 1000.0 + period - 0.1
+        if not poll_only:
+            assert await anext(loop) == {"1": "PUSH", "full_poll": False}
+            # Recent push data must not prevent the scheduled poll.
+            device._cached_state["updated_at"] = clock[0]
+            clock[0] = 1000.0 + period + 0.1
+        result = await anext(loop)
+        assert result == {
+            "1": "FORCED" if forced_updates else "STATUS",
+            "full_poll": not forced_updates,
+        }
+        # Poll-only connections may wait up to the existing five-second backoff.
+        assert 1000.0 + period < clock[0] < 1000.0 + period + 5.1
+        device._cached_state = {**result, "updated_at": clock[0]}
+        last_poll = clock[0]
+        clock[0] = last_poll + period - 0.1
+        if not poll_only:
+            assert await anext(loop) == {"1": "PUSH", "full_poll": False}
+            device._cached_state["updated_at"] = clock[0]
+            clock[0] = last_poll + period + 0.1
+        assert await anext(loop) == {"1": "STATUS", "full_poll": True}
+        assert last_poll + period < clock[0] < last_poll + period + 5.1
+    finally:
+        device._running = False
+        await loop.aclose()
 
 
 def test_should_poll(subject):

@@ -84,6 +84,16 @@
                 "manual": "Adja meg manuálisan az eszköz csatlakozási adatait.",
                 "cloud_fresh_login": "SmartLife felhő által támogatott eszközbeállítás, friss bejelentkezés."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 másodperc",
+                "10": "10 másodperc",
+                "15": "15 másodperc",
+                "30": "30 másodperc (alapértelmezett)",
+                "60": "60 másodperc",
+                "150": "150 másodperc"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "IP cím vagy állomásnév",
                     "local_key": "Helyi kulcs (local_key)",
                     "protocol_version": "Protokol verzió (hagyd auto-n, ha nem tudod)",
-                    "poll_only": "Csak olvasás (próbáld ki ezt, ha az eszköz nem működik rendesen)"
+                    "poll_only": "Csak olvasás (próbáld ki ezt, ha az eszköz nem működik rendesen)",
+                    "polling_interval": "Lekérdezési időköz"
+                },
+                "data_description": {
+                    "polling_interval": "A lekérdezési kérések közötti idő. **Az alapértelmezettől eltérő érték az eszköz vagy az átjáró instabilitását okozhatja; probléma esetén állítsd vissza a 30 másodpercet.** A kényszerített frissítést igénylő eszközöknél a mért értékek jellemzően minden második lekérdezési időközben frissülnek, az eszköztől függően."
                 }
             }
         },

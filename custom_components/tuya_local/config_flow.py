@@ -34,10 +34,13 @@ from .const import (
     CONF_MANUFACTURER,
     CONF_MODEL,
     CONF_POLL_ONLY,
+    CONF_POLLING_INTERVAL,
     CONF_PROTOCOL_VERSION,
     CONF_TYPE,
     CONF_USER_CODE,
     DATA_STORE,
+    DEFAULT_POLLING_INTERVAL,
+    POLLING_INTERVALS,
 )
 from .device import TuyaLocalDevice
 from .helpers.config import get_device_id
@@ -624,6 +627,7 @@ class OptionsFlowHandler(OptionsFlow):
         config = {**self.config_entry.data, **self.config_entry.options}
 
         if user_input is not None:
+            user_input[CONF_POLLING_INTERVAL] = int(user_input[CONF_POLLING_INTERVAL])
             proto = user_input.get(CONF_PROTOCOL_VERSION)
             if proto != "auto":
                 user_input[CONF_PROTOCOL_VERSION] = float(proto)
@@ -647,6 +651,18 @@ class OptionsFlowHandler(OptionsFlow):
             vol.Required(
                 CONF_POLL_ONLY, default=config.get(CONF_POLL_ONLY, False)
             ): bool,
+            vol.Required(
+                CONF_POLLING_INTERVAL,
+                default=str(
+                    config.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)
+                ),
+            ): SelectSelector(
+                SelectSelectorConfig(
+                    options=[str(interval) for interval in POLLING_INTERVALS],
+                    mode=SelectSelectorMode.DROPDOWN,
+                    translation_key=CONF_POLLING_INTERVAL,
+                )
+            ),
         }
         cfg = await self.hass.async_add_executor_job(
             get_config,

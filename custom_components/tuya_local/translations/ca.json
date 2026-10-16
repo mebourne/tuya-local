@@ -84,6 +84,16 @@
                 "manual": "Proporciona manualment la informació de connexió al dispositiu.",
                 "cloud_fresh_login": "Inicia la sessió en un altre compte de núvol de SmartLife."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 segons",
+                "10": "10 segons",
+                "15": "15 segons",
+                "30": "30 segons (per defecte)",
+                "60": "60 segons",
+                "150": "150 segons"
+            }
         }
     },
     "options": {
@@ -94,7 +104,11 @@
                     "host": "Adreça IP o nom d'amfitrió",
                     "local_key": "Clau local",
                     "protocol_version": "Versió del protocol (intenteu-ho automàticament si no es coneix)",
-                    "poll_only": "Només enquestes (proveu això si el vostre dispositiu no funciona completament)"
+                    "poll_only": "Només enquestes (proveu això si el vostre dispositiu no funciona completament)",
+                    "polling_interval": "Interval de sondeig"
+                },
+                "data_description": {
+                    "polling_interval": "Temps entre peticions de sondeig. **Canviar el valor per defecte pot causar inestabilitat al dispositiu o a la passarel·la; restabliu 30 segons si hi ha problemes.** Per als dispositius que requereixen actualitzacions forçades, les mesures normalment s'actualitzen cada dos intervals de sondeig, segons el dispositiu."
                 },
                 "description": "[Seguiu aquestes instruccions per a trobar la vostra clau local.]({device_details_url})"
             }

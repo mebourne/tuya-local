@@ -84,6 +84,16 @@
                 "manual": "Ange enhetsanslutningsinformation manuellt.",
                 "cloud_fresh_login": "SmartLife cloud-assisterad enhetskonfiguration med ny inloggning."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 sekunder",
+                "10": "10 sekunder",
+                "15": "15 sekunder",
+                "30": "30 sekunder (standard)",
+                "60": "60 sekunder",
+                "150": "150 sekunder"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "IP-adress eller värdnamn",
                     "local_key": "Lokal nyckel",
                     "protocol_version": "Protokollversion (prova auto om okänd)",
-                    "poll_only": "Endast polling (prova detta om din enhet inte fungerar helt)"
+                    "poll_only": "Endast polling (prova detta om din enhet inte fungerar helt)",
+                    "polling_interval": "Pollningsintervall"
+                },
+                "data_description": {
+                    "polling_interval": "Tid mellan pollningsförfrågningar. **Att ändra från standardvärdet kan orsaka instabilitet i enheten eller gatewayen; återställ till 30 sekunder om problem uppstår.** För enheter som kräver tvingade uppdateringar uppdateras mätvärden vanligtvis vartannat pollningsintervall, beroende på enheten."
                 }
             }
         },

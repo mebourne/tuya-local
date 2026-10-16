@@ -84,6 +84,16 @@
                 "manual": "Furnizați manual informațiile de conectare ale dispozitivului.",
                 "cloud_fresh_login": "Configurare dispozitiv asistată de cloud SmartLife cu autentificare nouă."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 secunde",
+                "10": "10 secunde",
+                "15": "15 secunde",
+                "30": "30 de secunde (implicit)",
+                "60": "60 de secunde",
+                "150": "150 de secunde"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "Adresă IP sau hostname",
                     "local_key": "Cheie locală",
                     "protocol_version": "Versiunea protocolului (încercați auto dacă nu este cunoscută)",
-                    "poll_only": "Doar interogare (încercați dacă dispozitivul nu funcționează complet)"
+                    "poll_only": "Doar interogare (încercați dacă dispozitivul nu funcționează complet)",
+                    "polling_interval": "Interval de interogare"
+                },
+                "data_description": {
+                    "polling_interval": "Timpul dintre cererile de interogare. **Modificarea valorii implicite poate cauza instabilitatea dispozitivului sau a gateway-ului; reveniți la 30 de secunde dacă apar probleme.** Pentru dispozitivele care necesită actualizări forțate, măsurătorile se actualizează de obicei la fiecare două intervale de interogare, în funcție de dispozitiv."
                 }
             }
         },

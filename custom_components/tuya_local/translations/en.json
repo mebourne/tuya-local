@@ -84,6 +84,16 @@
                 "manual": "Manually provide device connection information.",
                 "cloud_fresh_login": "SmartLife cloud-assisted device setup with fresh login."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 seconds",
+                "10": "10 seconds",
+                "15": "15 seconds",
+                "30": "30 seconds (default)",
+                "60": "60 seconds",
+                "150": "150 seconds"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "IP address or hostname",
                     "local_key": "Local key",
                     "protocol_version": "Protocol version (try auto if not known)",
-                    "poll_only": "Poll only (try this if your device does not work fully)"
+                    "poll_only": "Poll only (try this if your device does not work fully)",
+                    "polling_interval": "Polling interval"
+                },
+                "data_description": {
+                    "polling_interval": "Time between polling requests. **Changing from the default may cause device or gateway instability; restore 30 seconds if problems occur.** For devices requiring forced updates, measurements typically update every two polling intervals, depending on the device."
                 }
             }
         },
