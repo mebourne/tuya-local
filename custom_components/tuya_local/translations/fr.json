@@ -84,6 +84,16 @@
                 "manual": "Fournissez manuellement les informations de connexion de l’appareil.",
                 "cloud_fresh_login": "Configuration de l'appareil assistée par le cloud SmartLife (nouvelle connexion)."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 secondes",
+                "10": "10 secondes",
+                "15": "15 secondes",
+                "30": "30 secondes (par défaut)",
+                "60": "60 secondes",
+                "150": "150 secondes"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "Adresse IP ou Nom d'hote",
                     "local_key": "Local key",
                     "protocol_version": "Version du Protocole (Auto si inconnu)",
-                    "poll_only": "Poll only (essayez ceci si votre appareil ne fonctionne pas complètement)"
+                    "poll_only": "Poll only (essayez ceci si votre appareil ne fonctionne pas complètement)",
+                    "polling_interval": "Intervalle d'interrogation"
+                },
+                "data_description": {
+                    "polling_interval": "Temps entre les requêtes d'interrogation. **Modifier la valeur par défaut peut provoquer une instabilité de l'appareil ou de la passerelle ; rétablissez 30 secondes en cas de problème.** Pour les appareils nécessitant des mises à jour forcées, les mesures sont généralement actualisées tous les deux intervalles d'interrogation, selon l'appareil."
                 }
             }
         },

@@ -84,6 +84,16 @@
                 "manual": "Geben Sie manuell Informationen zur Geräteverbindung an.",
                 "cloud_fresh_login": "Cloud-gestützte Geräteeinrichtung von SmartLife mit einem frischen Login."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 Sekunden",
+                "10": "10 Sekunden",
+                "15": "15 Sekunden",
+                "30": "30 Sekunden (Standard)",
+                "60": "60 Sekunden",
+                "150": "150 Sekunden"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "IP-Adresse oder Host-Name",
                     "local_key": "Lokaler Schlüssel",
                     "protocol_version": "Protokollversion (versuchen Sie auto, falls nicht bekannt)",
-                    "poll_only": "Nur Abfrage (versuchen Sie dies, wenn Ihr Gerät nicht vollständig funktioniert)"
+                    "poll_only": "Nur Abfrage (versuchen Sie dies, wenn Ihr Gerät nicht vollständig funktioniert)",
+                    "polling_interval": "Abfrageintervall"
+                },
+                "data_description": {
+                    "polling_interval": "Zeit zwischen Abfrageanfragen. **Eine Abweichung vom Standardwert kann zu Instabilität des Geräts oder Gateways führen; stellen Sie bei Problemen wieder 30 Sekunden ein.** Bei Geräten, die erzwungene Aktualisierungen benötigen, werden Messwerte je nach Gerät typischerweise alle zwei Abfrageintervalle aktualisiert."
                 }
             }
         },

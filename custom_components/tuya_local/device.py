@@ -24,7 +24,9 @@ from .const import (
     CONF_MANUFACTURER,
     CONF_MODEL,
     CONF_POLL_ONLY,
+    CONF_POLLING_INTERVAL,
     CONF_PROTOCOL_VERSION,
+    DEFAULT_POLLING_INTERVAL,
     DOMAIN,
 )
 from .helpers.config import get_device_id
@@ -60,6 +62,7 @@ class TuyaLocalDevice(object):
         poll_only=False,
         manufacturer=None,
         model=None,
+        polling_interval=DEFAULT_POLLING_INTERVAL,
     ):
         """
         Represents a Tuya-based device.
@@ -75,6 +78,7 @@ class TuyaLocalDevice(object):
             poll_only (bool): True if the device should be polled only.
             manufacturer (str | None): The device manufacturer, if known.
             model (str | None): The device model, if known.
+            polling_interval (int): Seconds between scheduled polling requests.
         """
         self._name = name
         self._manufacturer = manufacturer
@@ -156,7 +160,7 @@ class TuyaLocalDevice(object):
         # we can overlay onto the state while we wait for the board to update
         # its switches.
         self._FAKE_IT_TIMEOUT = 5
-        self._POLLING_INTERVAL = 30
+        self._POLLING_INTERVAL = polling_interval
         self._HEARTBEAT_INTERVAL = 5
         # More attempts are needed in auto mode so we can cycle through all
         # the possibilities a couple of times
@@ -855,6 +859,7 @@ def setup_device(hass: HomeAssistant, config: dict):
         config[CONF_POLL_ONLY],
         manufacturer=config.get(CONF_MANUFACTURER),
         model=config.get(CONF_MODEL),
+        polling_interval=config.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL),
     )
     hass.data[DOMAIN][get_device_id(config)] = {
         "device": device,

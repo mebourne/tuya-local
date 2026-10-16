@@ -126,6 +126,34 @@ the name to make it easier to distinguish them.
 device.  This will be used as the base for the entity names in Home
 Assistant.
 
+### Device options
+
+After adding a device, open its options under **Settings / Devices & Services**
+to change its connection settings and polling interval. Saving options reloads
+that device's integration; a Home Assistant restart is not required.
+
+#### polling_interval
+
+Choose from a range of polling intervals between 5 and 150 seconds, where the
+default is 30 seconds. This will affect how often updates are recorded, for
+example if you have a smart plug with energy monitoring.
+
+For devices requiring forced updates, measurements typically update every two
+polling intervals, depending on the device. For these devices you may expect to
+see updates every 10 seconds through to 5 minutes for the corresponding polling
+interval settings, with the default of 30 seconds providing updates once per
+minute.
+
+Actual measurement updates depend on device firmware and connection timing; the
+setting does not guarantee a sampling rate or alignment to Home Assistant's
+statistics buckets.
+
+**WARNING:** Changing from the default may cause device or gateway
+instability. If devices disconnect or become unreliable, restore **30
+seconds**. Shorter intervals increase request traffic, including the combined
+load from gateway sub-devices. Do **NOT** create bug reports if you have changed
+from the default and caused devices to misbehave.
+
 ---
 
 ## Device support

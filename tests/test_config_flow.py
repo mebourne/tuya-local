@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 import voluptuous as vol
 from homeassistant.const import CONF_HOST, CONF_NAME
-from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.data_entry_flow import FlowResultType, InvalidData
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -23,6 +23,7 @@ from custom_components.tuya_local.const import (
     CONF_DEVICE_ID,
     CONF_LOCAL_KEY,
     CONF_POLL_ONLY,
+    CONF_POLLING_INTERVAL,
     CONF_PROTOCOL_VERSION,
     CONF_TYPE,
     DOMAIN,
@@ -731,7 +732,7 @@ async def test_flow_choose_entities_creates_config_entry(hass, bypass_setup, moc
 
 @pytest.mark.asyncio
 async def test_options_flow_init(hass, bypass_data_fetch):
-    """Test config flow options."""
+    """Options open with existing connection settings and the legacy poll default."""
     config_entry = MockConfigEntry(
         domain=DOMAIN,
         version=13,
@@ -757,16 +758,18 @@ async def test_options_flow_init(hass, bypass_data_fetch):
     assert "form" == result["type"]
     assert "user" == result["step_id"]
     assert {} == result["errors"]
-    assert result["data_schema"](
-        {
-            CONF_HOST: "hostname",
-            CONF_LOCAL_KEY: TESTKEY,
-        }
-    )
+    assert result["data_schema"]({}) == {
+        CONF_HOST: "hostname",
+        CONF_LOCAL_KEY: TESTKEY,
+        CONF_PROTOCOL_VERSION: "auto",
+        CONF_POLL_ONLY: False,
+        CONF_POLLING_INTERVAL: "30",
+    }
 
 
 @pytest.mark.asyncio
 async def test_options_flow_modifies_config(hass, bypass_setup, mocker):
+    """Connection options save changed values with the legacy polling default."""
     mock_device = mocker.MagicMock()
     mocker.patch(
         "custom_components.tuya_local.config_flow.async_test_connection",
@@ -809,16 +812,111 @@ async def test_options_flow_modifies_config(hass, bypass_setup, mocker):
         CONF_LOCAL_KEY: "new_key",
         CONF_POLL_ONLY: False,
         CONF_PROTOCOL_VERSION: 3.3,
+        CONF_POLLING_INTERVAL: 30,
     }
     assert "create_entry" == result["type"]
     assert "" == result["title"]
     assert expected == result["data"]
+    assert config_entry.options == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("polling_interval", [5, 10, 15, 30, 60, 150])
+async def test_options_flow_polling_interval(
+    hass, bypass_setup, mocker, polling_interval
+):
+    """Allowed intervals save as integers and survive reopening and resaving options."""
+    mocker.patch(
+        "custom_components.tuya_local.config_flow.async_test_connection",
+        return_value=mocker.MagicMock(),
+    )
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=13,
+        data={
+            CONF_DEVICE_ID: "deviceid",
+            CONF_HOST: "hostname",
+            CONF_LOCAL_KEY: TESTKEY,
+            CONF_PROTOCOL_VERSION: 3.3,
+            CONF_POLL_ONLY: False,
+            CONF_TYPE: "smartplugv1",
+        },
+        options={CONF_POLLING_INTERVAL: 60},
+    )
+    config_entry.add_to_hass(hass)
+    assert await hass.config_entries.async_setup(config_entry.entry_id)
+    form = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert form["data_schema"]({})[CONF_POLLING_INTERVAL] == "60"
+    result = await hass.config_entries.options.async_configure(
+        form["flow_id"],
+        user_input={CONF_POLLING_INTERVAL: str(polling_interval)},
+    )
+    expected = {
+        CONF_HOST: "hostname",
+        CONF_LOCAL_KEY: TESTKEY,
+        CONF_PROTOCOL_VERSION: 3.3,
+        CONF_POLL_ONLY: False,
+        CONF_POLLING_INTERVAL: polling_interval,
+    }
+    assert result["type"] == "create_entry"
+    assert result["data"] == expected
+    assert config_entry.options == expected
+
+    form = await hass.config_entries.options.async_init(config_entry.entry_id)
+    assert form["data_schema"]({})[CONF_POLLING_INTERVAL] == str(polling_interval)
+    result = await hass.config_entries.options.async_configure(
+        form["flow_id"], user_input={}
+    )
+    assert result["type"] == "create_entry"
+    assert config_entry.options == expected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("polling_interval", ["4", "7", "120", "151", 5.5, True])
+async def test_options_flow_rejects_unsupported_polling_interval(
+    hass, bypass_setup, mocker, polling_interval
+):
+    """Invalid choices are rejected at the interval field without changing options."""
+    mocker.patch(
+        "custom_components.tuya_local.config_flow.async_test_connection",
+        return_value=mocker.MagicMock(),
+    )
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=13,
+        data={
+            CONF_DEVICE_ID: "deviceid",
+            CONF_HOST: "hostname",
+            CONF_LOCAL_KEY: TESTKEY,
+            CONF_PROTOCOL_VERSION: 3.3,
+            CONF_POLL_ONLY: False,
+            CONF_TYPE: "smartplugv1",
+        },
+        options={CONF_POLLING_INTERVAL: 60},
+    )
+    config_entry.add_to_hass(hass)
+    await hass.config_entries.async_setup(config_entry.entry_id)
+    form = await hass.config_entries.options.async_init(config_entry.entry_id)
+    with pytest.raises(InvalidData) as error:
+        await hass.config_entries.options.async_configure(
+            form["flow_id"],
+            user_input={
+                CONF_HOST: "hostname",
+                CONF_LOCAL_KEY: TESTKEY,
+                CONF_PROTOCOL_VERSION: "3.3",
+                CONF_POLL_ONLY: False,
+                CONF_POLLING_INTERVAL: polling_interval,
+            },
+        )
+    assert error.value.path == [CONF_POLLING_INTERVAL]
+    assert config_entry.options == {CONF_POLLING_INTERVAL: 60}
 
 
 @pytest.mark.asyncio
 async def test_options_flow_fails_when_connection_fails(
     hass, bypass_data_fetch, mocker
 ):
+    """Connection failures redisplay submitted settings without saving options."""
     mocker.patch(
         "custom_components.tuya_local.config_flow.async_test_connection",
         return_value=None,
@@ -850,11 +948,20 @@ async def test_options_flow_fails_when_connection_fails(
         user_input={
             CONF_HOST: "new_hostname",
             CONF_LOCAL_KEY: "new_key",
+            CONF_POLLING_INTERVAL: "5",
         },
     )
     assert "form" == result["type"]
     assert "user" == result["step_id"]
     assert {"base": "connection"} == result["errors"]
+    assert result["data_schema"]({}) == {
+        CONF_HOST: "new_hostname",
+        CONF_LOCAL_KEY: "new_key",
+        CONF_PROTOCOL_VERSION: "auto",
+        CONF_POLL_ONLY: False,
+        CONF_POLLING_INTERVAL: "5",
+    }
+    assert config_entry.options == {}
 
 
 @pytest.mark.asyncio

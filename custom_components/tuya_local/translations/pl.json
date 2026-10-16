@@ -84,6 +84,16 @@
                 "manual": "Ręcznie podaj informacje o połączeniu urządzenia.",
                 "cloud_fresh_login": "Konfiguracja urządzenia SmartLife wspomagana chmurą (świeże logowanie)."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 sekund",
+                "10": "10 sekund",
+                "15": "15 sekund",
+                "30": "30 sekund (domyślnie)",
+                "60": "60 sekund",
+                "150": "150 sekund"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "Adres IP lub nazwa hosta",
                     "local_key": "Local key",
                     "protocol_version": "Wersja protokołu (spróbuj auto jeśli nieznana)",
-                    "poll_only": "Poll only (spróbuj jeśli Twoje urządzenie nie działa w pełni)"
+                    "poll_only": "Poll only (spróbuj jeśli Twoje urządzenie nie działa w pełni)",
+                    "polling_interval": "Interwał odpytywania"
+                },
+                "data_description": {
+                    "polling_interval": "Czas między żądaniami odpytywania. **Zmiana wartości domyślnej może powodować niestabilność urządzenia lub bramki; w razie problemów przywróć 30 sekund.** W przypadku urządzeń wymagających wymuszonych aktualizacji pomiary zwykle aktualizują się co dwa interwały odpytywania, zależnie od urządzenia."
                 }
             }
         },

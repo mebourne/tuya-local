@@ -84,6 +84,16 @@
                 "manual": "Oppgi informasjon om enhetstilkobling manuelt.",
                 "cloud_fresh_login": "SmartLife sky-assistert enhetsoppsett med ny pålogging."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 sekunder",
+                "10": "10 sekunder",
+                "15": "15 sekunder",
+                "30": "30 sekunder (standard)",
+                "60": "60 sekunder",
+                "150": "150 sekunder"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "IP addresse eller vertsnavn",
                     "local_key": "Lokal nøkkel",
                     "protocol_version": "Protocol versjon (prøv auto hvis du der usikker)",
-                    "poll_only": "Kun poll (prøv dette hvis enhenten ikke virker ordentlig)"
+                    "poll_only": "Kun poll (prøv dette hvis enhenten ikke virker ordentlig)",
+                    "polling_interval": "Pollingintervall"
+                },
+                "data_description": {
+                    "polling_interval": "Tid mellom pollingforespørsler. **Endring fra standardverdien kan føre til ustabilitet i enheten eller gatewayen; sett tilbake til 30 sekunder hvis det oppstår problemer.** For enheter som krever tvungne oppdateringer, oppdateres målinger vanligvis hvert andre pollingintervall, avhengig av enheten."
                 }
             }
         },

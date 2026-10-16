@@ -84,6 +84,16 @@
                 "manual": "Proporcione manualmente información de conexión del dispositivo.",
                 "cloud_fresh_login": "Configuración del dispositivo asistida por la nube SmartLife con inicio de sesión fresco."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 segundos",
+                "10": "10 segundos",
+                "15": "15 segundos",
+                "30": "30 segundos (predeterminado)",
+                "60": "60 segundos",
+                "150": "150 segundos"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "Dirección IP o nombre de host",
                     "local_key": "Clave local (Local key)",
                     "protocol_version": "Versión del protocolo (pruebe automático si no lo sabe)",
-                    "poll_only": "Solo encuesta (pruebe esto si su dispositivo no funciona completamente)"
+                    "poll_only": "Solo encuesta (pruebe esto si su dispositivo no funciona completamente)",
+                    "polling_interval": "Intervalo de sondeo"
+                },
+                "data_description": {
+                    "polling_interval": "Tiempo entre solicitudes de sondeo. **Cambiar el valor predeterminado puede causar inestabilidad en el dispositivo o la puerta de enlace; restablezca 30 segundos si surgen problemas.** En los dispositivos que requieren actualizaciones forzadas, las mediciones suelen actualizarse cada dos intervalos de sondeo, según el dispositivo."
                 }
             }
         },

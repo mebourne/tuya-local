@@ -84,6 +84,16 @@
                 "manual": "Ručně zadejte informace o připojení zařízení.",
                 "cloud_fresh_login": "Přihlaste se pomocí jiného účtu SmartLife nebo Tuya."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 sekund",
+                "10": "10 sekund",
+                "15": "15 sekund",
+                "30": "30 sekund (výchozí)",
+                "60": "60 sekund",
+                "150": "150 sekund"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "IP adresa nebo název hostitele (hostname)",
                     "local_key": "lokální klíč (local_key)",
                     "protocol_version": "Verze protokolu (zkuste auto pokud ji neznáte)",
-                    "poll_only": "Poll only (vyzkoušejte pokud zařízení úplně nefunguje)"
+                    "poll_only": "Poll only (vyzkoušejte pokud zařízení úplně nefunguje)",
+                    "polling_interval": "Interval dotazování"
+                },
+                "data_description": {
+                    "polling_interval": "Doba mezi dotazovacími požadavky. **Změna výchozí hodnoty může způsobit nestabilitu zařízení nebo brány; pokud nastanou problémy, obnovte 30 sekund.** U zařízení vyžadujících vynucené aktualizace se měření obvykle aktualizují každé dva intervaly dotazování, v závislosti na zařízení."
                 }
             }
         },

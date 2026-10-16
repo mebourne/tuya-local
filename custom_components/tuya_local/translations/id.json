@@ -84,6 +84,16 @@
                 "manual": "Berikan informasi koneksi perangkat secara manual.",
                 "cloud_fresh_login": "Penyiapan perangkat berbantuan cloud SmartLife dengan login baru."
             }
+        },
+        "polling_interval": {
+            "options": {
+                "5": "5 detik",
+                "10": "10 detik",
+                "15": "15 detik",
+                "30": "30 detik (bawaan)",
+                "60": "60 detik",
+                "150": "150 detik"
+            }
         }
     },
     "options": {
@@ -95,7 +105,11 @@
                     "host": "Alamat IP atau nama hos",
                     "local_key": "Kunci lokal (local_key)",
                     "protocol_version": "Versi protokol (coba otomatis bila tidak diketahui)",
-                    "poll_only": "Hanya poll (Coba ini bila perangkat Anda tidak berfungsi secara penuh)"
+                    "poll_only": "Hanya poll (Coba ini bila perangkat Anda tidak berfungsi secara penuh)",
+                    "polling_interval": "Interval polling"
+                },
+                "data_description": {
+                    "polling_interval": "Waktu antara permintaan polling. **Mengubah dari nilai bawaan dapat menyebabkan ketidakstabilan perangkat atau gateway; kembalikan ke 30 detik jika terjadi masalah.** Untuk perangkat yang memerlukan pembaruan paksa, pengukuran biasanya diperbarui setiap dua interval polling, tergantung perangkatnya."
                 }
             }
         },
