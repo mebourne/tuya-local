@@ -3,10 +3,15 @@ import logging
 from time import time
 
 import pytest
+from homeassistant.helpers.entity_component import EntityComponent
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 # from homeassistant.const import EVENT_HOMEASSISTANT_STARTED, EVENT_HOMEASSISTANT_STOP
 from custom_components.tuya_local.const import CONF_DEVICE_ID, DOMAIN
 from custom_components.tuya_local.device import TuyaLocalDevice, async_delete_device
+from custom_components.tuya_local.helpers.device_config import get_config
+from custom_components.tuya_local.infrared import TuyaLocalInfrared
+from custom_components.tuya_local.remote import TuyaLocalRemote
 
 from .const import EUROM_600_HEATER_PAYLOAD
 
@@ -49,6 +54,40 @@ def subject(patched_hass, mock_api, mocker):
     subject._api_protocol_working = True
     subject._protocol_configured = "auto"
     return subject
+
+
+@pytest.fixture
+async def ir_device(hass, mock_api):
+    """Register real remote and infrared entities with simulated Tuya I/O."""
+    hass.data[DOMAIN] = {}
+    hass.is_running = True
+    api = mock_api()
+    api.id = "test_ir"
+    api.parent = None
+    api.socket = object()
+    api.receive.return_value = None
+    device = TuyaLocalDevice("Test IR", api.id, "host", "key", 3.3, None, hass)
+    device._running = True  # Register entities before starting communication.
+    device._cached_state = {"updated_at": time()}
+    config = await hass.async_add_executor_job(get_config, "basic_ir_remote")
+    entry = MockConfigEntry(domain=DOMAIN)
+    entry.add_to_hass(hass)
+    entities = []
+    for entity_config in config.all_entities():
+        cls = TuyaLocalRemote if entity_config.entity == "remote" else TuyaLocalInfrared
+        entity = cls(device, entity_config)
+        entity.entity_id = f"{entity_config.entity}.test_ir"
+        component = EntityComponent(
+            logging.getLogger(__name__), entity_config.entity, hass
+        )
+        component._platforms[entity_config.entity].config_entry = entry
+        await component.async_add_entities([entity])
+        entities.append(entity)
+    await hass.async_block_till_done()
+    device._running = False
+    yield device, entities
+    for entity in entities:
+        await entity.async_remove()
 
 
 def test_name(subject):
@@ -169,6 +208,50 @@ async def test_refresh_clears_cache_after_allowed_failures(subject, mock_api):
     assert mock_api().status.call_count == 3
     assert subject._cached_state == {"updated_at": 0}
     assert subject._pending_updates == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("pending_send", [False, True])
+@pytest.mark.parametrize("write_error", [False, True])
+async def test_no_data_response_restores_entity_states(
+    ir_device, hass, mock_api, mocker, pending_send, write_error
+):
+    """No-data recovery republishes both entities, despite pending sends or a bad writer.
+
+    A transient write failure must not retry device I/O, block a sibling, or
+    prevent that entity recovering on a subsequent successful no-data poll.
+    """
+    device, entities = ir_device
+    api = mock_api()
+    api.status.return_value = {"Error": "offline", "Err": "902"}
+    for _ in range(11):
+        await device.async_refresh()
+    assert [hass.states.get(e.entity_id).state for e in entities] == [
+        "unavailable",
+        "unavailable",
+    ]
+    assert device.get_property("updated_at") == 0
+    if pending_send:
+        device._add_properties_to_pending_updates({"201": "pending command"})
+    if write_error:
+        original_write = entities[0].async_write_ha_state
+        mocker.patch.object(
+            entities[0],
+            "async_write_ha_state",
+            side_effect=RuntimeError("transient entity write error"),
+        )
+    api.status.return_value = {"Error": "no data", "Err": "900"}
+    calls = api.status.call_count
+    await device.async_refresh()
+    assert api.status.call_count == calls + 1
+    assert device.get_property("updated_at") > 0
+    assert hass.states.get(entities[1].entity_id).state == "unknown"
+    if write_error:
+        # Let the next poll use the real writer after the injected failure.
+        mocker.patch.object(entities[0], "async_write_ha_state", original_write)
+    await device.async_refresh()
+    assert api.status.call_count == calls + 2
+    assert [hass.states.get(e.entity_id).state for e in entities] == ["on", "unknown"]
 
 
 @pytest.mark.asyncio
