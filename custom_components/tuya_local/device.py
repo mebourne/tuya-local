@@ -262,6 +262,17 @@ class TuyaLocalDevice(object):
             except CancelledError:
                 pass
 
+    @callback
+    def _update_entities(self):
+        """Publish cached state without letting one entity block its siblings."""
+        for entity in self._children:
+            try:
+                entity.async_schedule_update_ha_state()
+            except Exception:
+                _LOGGER.exception(
+                    "%s state update error for entity %s", self.name, entity.entity_id
+                )
+
     async def receive_loop(self):
         """Coroutine wrapper for async_receive generator."""
         try:
@@ -703,6 +714,7 @@ class TuyaLocalDevice(object):
                             # to a status query. Treat as reachable with no
                             # data so commands can still be sent.
                             self._cached_state["updated_at"] = time()
+                            self._update_entities()
                             retval = None
                         else:
                             raise AttributeError(retval["Error"])
@@ -730,8 +742,7 @@ class TuyaLocalDevice(object):
                         > self._AUTO_FAILURE_RESET_COUNT
                     ):
                         self._api_protocol_working = False
-                        for entity in self._children:
-                            entity.async_schedule_update_ha_state()
+                        self._update_entities()
                     if last_err_code:
                         log_format = "%s Device reported error %s: %s%s"
                         log_args = (
