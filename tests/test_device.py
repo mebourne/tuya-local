@@ -3,7 +3,8 @@ import logging
 from time import time
 
 import pytest
-from homeassistant.const import CONF_HOST, CONF_NAME
+from homeassistant.const import CONF_HOST, CONF_NAME, EVENT_STATE_CHANGED
+from homeassistant.core import callback
 from homeassistant.helpers.entity_component import EntityComponent
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
@@ -85,6 +86,7 @@ async def ir_device(hass, mock_api):
     entry = MockConfigEntry(domain=DOMAIN)
     entry.add_to_hass(hass)
     entities = []
+    components = []
     for entity_config in config.all_entities():
         cls = TuyaLocalRemote if entity_config.entity == "remote" else TuyaLocalInfrared
         entity = cls(device, entity_config)
@@ -95,11 +97,51 @@ async def ir_device(hass, mock_api):
         component._platforms[entity_config.entity].config_entry = entry
         await component.async_add_entities([entity])
         entities.append(entity)
+        components.append(component)
     await hass.async_block_till_done()
     device._running = False
     yield device, entities
-    for entity in entities:
-        await entity.async_remove()
+    for component, entity in zip(components, entities, strict=True):
+        if component.get_entity(entity.entity_id):
+            await entity.async_remove()
+
+
+@pytest.fixture
+async def monitor_backoff(ir_device, hass, mocker):
+    """Control only Tuya's retry sleeps and observe actual HA recovery events."""
+    device, entities = ir_device
+    entered = asyncio.Queue()
+    resume = asyncio.Queue()
+    recovered = asyncio.Event()
+
+    async def sleep(delay):
+        if delay == 5:
+            entered.put_nowait(None)
+            await resume.get()
+        else:
+            await asyncio.sleep(0.001)
+
+    # Do not replace asyncio.sleep globally: Home Assistant uses it too.
+    module = mocker.Mock(wraps=asyncio)
+    module.sleep.side_effect = sleep
+    mocker.patch("custom_components.tuya_local.device.asyncio", module)
+
+    @callback
+    def state_changed(event):
+        if device.get_property("updated_at") > 0 and [
+            hass.states.get(e.entity_id).state for e in entities
+        ] == ["on", "unknown"]:
+            recovered.set()
+
+    unsubscribe = hass.bus.async_listen(EVENT_STATE_CHANGED, state_changed)
+    yield entered, resume, recovered
+    unsubscribe()
+    if device._refresh_task:
+        device._refresh_task.cancel()
+        try:
+            await device._refresh_task
+        except asyncio.CancelledError:
+            pass
 
 
 def test_name(subject):
@@ -719,6 +761,126 @@ async def test_unregister_last_entity(subject, mocker):
     assert subject._children == []
     # Was the loop stopped?
     subject.async_stop.assert_called_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failures", [1, 2])
+@pytest.mark.parametrize("no_data", [False, True])
+async def test_receive_loop_recovers_after_exception(
+    ir_device, monitor_backoff, hass, mock_api, mocker, failures, no_data
+):
+    """Unexpected receive failures back off and recover real entities without reload.
+
+    Repeated failures must not spin or start concurrent monitors. Both ordinary
+    status data and successful no-data replies must restore availability.
+    """
+    device, entities = ir_device
+    entered, resume, recovered = monitor_backoff
+    original_receive = device.async_receive
+    remaining = failures
+
+    async def interrupted_receive():
+        nonlocal remaining
+        if remaining:
+            remaining -= 1
+            raise RuntimeError("injected receive failure")
+        async for poll in original_receive():
+            yield poll
+
+    mocker.patch.object(device, "async_receive", interrupted_receive)
+    mock_api().status.return_value = (
+        {"Error": "no data", "Err": "900"}
+        if no_data
+        else {"dps": {"201": "received status"}}
+    )
+    device.start()
+    task = device._refresh_task
+    for _ in range(failures):
+        await asyncio.wait_for(entered.get(), 2)
+        assert not task.done()
+        assert device.get_property("updated_at") == 0
+        assert [hass.states.get(e.entity_id).state for e in entities] == [
+            "unavailable",
+            "unavailable",
+        ]
+        device.start()  # Starting twice must not create a second monitor.
+        resume.put_nowait(None)
+    await asyncio.wait_for(recovered.wait(), 2)
+    assert not task.done()
+    if not no_data:
+        assert device.get_property("201") == "received status"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["on_receive", "dps"])
+async def test_entity_processing_failure_does_not_block_siblings(
+    ir_device, monitor_backoff, hass, mock_api, mocker, failure
+):
+    """A failed entity callback or DP cleanup does not block sibling updates or restart I/O."""
+    device, entities = ir_device
+    entered, _, _ = monitor_backoff
+    device._reset_cached_state()
+    for entity in entities:
+        entity.async_write_ha_state()
+    target = entities[0] if failure == "on_receive" else entities[0]._config
+    mocker.patch.object(target, failure, side_effect=RuntimeError("bad entity"))
+    mock_api().status.return_value = {"dps": {"201": "received status"}}
+    updated = asyncio.Event()
+
+    @callback
+    def state_changed(event):
+        if (
+            event.data["entity_id"] == entities[1].entity_id
+            and event.data["new_state"].state == "unknown"
+        ):
+            updated.set()
+
+    unsubscribe = hass.bus.async_listen(EVENT_STATE_CHANGED, state_changed)
+    try:
+        device.start()
+        await asyncio.wait_for(updated.wait(), 2)
+        assert device.get_property("201") == "received status"
+        assert not device._refresh_task.done()
+        assert entered.empty()
+        assert mock_api().status.call_count == 1
+    finally:
+        unsubscribe()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("termination", ["unload", "cancel", "shutdown"])
+async def test_receive_loop_does_not_restart_after_termination(
+    ir_device, monitor_backoff, hass, mock_api, mocker, termination
+):
+    """Unload, cancellation, and HA shutdown stop a monitor waiting to retry."""
+    device, entities = ir_device
+    entered, resume, _ = monitor_backoff
+
+    async def interrupted_receive():
+        raise RuntimeError("injected receive failure")
+        yield  # Make this a failing asynchronous generator.
+
+    mocker.patch.object(device, "async_receive", interrupted_receive)
+    device.start()
+    task = device._refresh_task
+    await asyncio.wait_for(entered.get(), 2)
+    if termination == "cancel":
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    elif termination == "shutdown":
+        mocker.patch.object(hass, "is_stopping", True)
+        resume.put_nowait(None)
+        await asyncio.wait_for(task, 2)
+    else:
+        await entities[0].async_remove()
+        removing = asyncio.create_task(entities[1].async_remove())
+        await asyncio.sleep(0)
+        resume.put_nowait(None)
+        await asyncio.wait_for(removing, 2)
+    assert task.done()
+    assert not device._running
+    mock_api().status.assert_not_called()
 
 
 @pytest.mark.asyncio
