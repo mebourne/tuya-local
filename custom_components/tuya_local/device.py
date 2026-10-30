@@ -200,10 +200,10 @@ class TuyaLocalDevice(object):
     def actually_start(self, event=None):
         _LOGGER.debug("Starting monitor loop for %s", self.name)
         self._running = True
-        self._shutdown_listener = self._hass.bus.async_listen_once(
-            EVENT_HOMEASSISTANT_STOP, self.async_stop
-        )
         if not self._refresh_task:
+            self._shutdown_listener = self._hass.bus.async_listen_once(
+                EVENT_HOMEASSISTANT_STOP, self.async_stop
+            )
             self._refresh_task = self._hass.async_create_task(self.receive_loop())
 
     def start(self):
@@ -270,58 +270,69 @@ class TuyaLocalDevice(object):
                 )
 
     async def receive_loop(self):
-        """Coroutine wrapper for async_receive generator."""
+        """Consume device updates, retrying unexpected failures until stopped."""
         try:
-            async for poll in self.async_receive():
-                if isinstance(poll, dict):
-                    _LOGGER.debug(
-                        "%s received %s",
-                        self.name,
-                        log_json(poll),
-                    )
-                    full_poll = poll.pop("full_poll", False)
-                    self._cached_state = self._cached_state | poll
-                    self._cached_state["updated_at"] = time()
-                    self._remove_properties_from_pending_updates(poll)
-
-                    for entity in self._children:
-                        # let entities trigger off poll contents directly
-                        try:
-                            entity.on_receive(poll, full_poll)
-                        except Exception as e:
-                            # Don't let exceptions thrown by the entities interrupt the communication loop
-                            # Just log them and move on.
-                            _LOGGER.exception(
-                                "%s on_receive error for entity %s: %s",
+            while self._running and not self._hass.is_stopping:
+                try:
+                    async for poll in self.async_receive():
+                        if isinstance(poll, dict):
+                            _LOGGER.debug(
+                                "%s received %s",
                                 self.name,
-                                entity.entity_id,
-                                e,
+                                log_json(poll),
                             )
-                        # clear non-persistant dps that were not in a full poll
-                        if full_poll:
-                            for dp in entity._config.dps():
-                                if not dp.persist and dp.id not in poll:
-                                    self._cached_state.pop(dp.id, None)
-                        entity.schedule_update_ha_state()
-                else:
-                    _LOGGER.debug(
-                        "%s received non data %s",
-                        self.name,
-                        log_json(poll),
-                    )
-            _LOGGER.warning("%s receive loop has terminated", self.name)
+                            full_poll = poll.pop("full_poll", False)
+                            self._cached_state = self._cached_state | poll
+                            self._cached_state["updated_at"] = time()
+                            self._remove_properties_from_pending_updates(poll)
 
-        except Exception as t:
-            _LOGGER.exception(
-                "%s receive loop terminated by exception %s", self.name, t
-            )
+                            for entity in self._children:
+                                try:
+                                    entity.on_receive(poll, full_poll)
+                                    # Clear non-persistent dps missing from a full poll.
+                                    if full_poll:
+                                        for dp in entity._config.dps():
+                                            if not dp.persist and dp.id not in poll:
+                                                self._cached_state.pop(dp.id, None)
+                                except Exception:
+                                    # One entity must not interrupt communication.
+                                    _LOGGER.exception(
+                                        "%s receive error for entity %s",
+                                        self.name,
+                                        entity.entity_id,
+                                    )
+                            self._update_entities()
+                        else:
+                            _LOGGER.debug(
+                                "%s received non data %s",
+                                self.name,
+                                log_json(poll),
+                            )
+                    if self._running:
+                        _LOGGER.warning("%s receive loop has terminated", self.name)
+                except Exception as t:
+                    _LOGGER.exception(
+                        "%s receive loop terminated by exception %s", self.name, t
+                    )
+                finally:
+                    try:
+                        self._api.set_socketPersistent(False)
+                        if self._api.parent:
+                            self._api.parent.set_socketPersistent(False)
+                    except Exception:
+                        _LOGGER.exception("%s connection cleanup failed", self.name)
+                    self._reset_cached_state()
+                    self._update_entities()
+
+                if self._running and not self._hass.is_stopping:
+                    _LOGGER.warning(
+                        "%s restarting receive loop in 5 seconds",
+                        self.name,
+                    )
+                    await asyncio.sleep(5)
         finally:
-            # Ensure the persistent connection is closed when the loop exits
-            # and device appears as unavailable
-            self._api.set_socketPersistent(False)
-            if self._api.parent:
-                self._api.parent.set_socketPersistent(False)
-            self._reset_cached_state()
+            self._running = False
+            self._refresh_task = None
 
     @property
     def should_poll(self):
