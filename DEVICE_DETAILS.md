@@ -43,6 +43,21 @@ Even if you can avoid the situations when it fails, reconnection performance
 will be much worse than with a fixed IP due to the need to search the network
 for the device first.
 
+If a configured device cannot connect during setup, the integration scans for
+a new address immediately and retries setup once if it verifies a new address.
+For devices that stop responding later, it also checks for address changes every
+minute. This works after a Home Assistant restart even if no device has connected
+yet, including entries with `Auto` or a blank host.
+A new address is saved only after discovery matches the device ID and a status
+query using the saved connection settings returns valid data. Existing entities,
+local keys and other settings are preserved.
+
+Discovery requires LAN broadcasts to reach Home Assistant. If discovery or
+verification fails, the saved address is left unchanged and the integration
+tries again on a later sweep. Devices that do not return status data cannot be
+verified automatically; update their host through the device options instead.
+DHCP reservations remain recommended.
+
 ### Finding device ids and local keys with tinytuya
 
 You can use this component's underlying library [tinytuya](https://github.com/jasonacox/tinytuya) to scan for devices in your network and find the required information about them. In particular, you need to use this procedure to obtain the `node_id` value required to connect to hub-dependent devices.

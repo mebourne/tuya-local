@@ -1096,18 +1096,25 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
     # Start background LAN rediscovery so a device that changes IP (e.g. after a
     # DHCP lease change) is relocated and reconnected without manual
     # reconfiguration. Safe to call repeatedly; only one sweeper is started.
-    await async_start_discovery(hass)
-    config = {**entry.data, **entry.options, "name": entry.title}
-    try:
-        device = await hass.async_add_executor_job(setup_device, hass, config)
-        await device.async_refresh()
+    rediscovery = await async_start_discovery(hass)
+    for attempt in range(2):
+        config = {**entry.data, **entry.options, "name": entry.title}
+        error = None
+        try:
+            device = await hass.async_add_executor_job(setup_device, hass, config)
+            await device.async_refresh()
+            if device.has_returned_state:
+                break
+        except Exception as err:
+            error = err
 
-    except Exception as e:
         cleanup_failed_device(hass, device_id)
-        raise ConfigEntryNotReady("tuya-local device not ready") from e
-
-    if not device.has_returned_state:
-        cleanup_failed_device(hass, device_id)
+        # Try a verified new address immediately, without waiting for a sweep.
+        # Retry setup only once; an offline network must not cause a tight loop.
+        if attempt == 0 and await rediscovery.async_relocate_entry(entry):
+            continue
+        if error is not None:
+            raise ConfigEntryNotReady("tuya-local device not ready") from error
         raise ConfigEntryNotReady("tuya-local device offline")
 
     device_conf = await hass.async_add_executor_job(
