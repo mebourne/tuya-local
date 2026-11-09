@@ -50,9 +50,11 @@ def bypass_discovery(mocker):
 
     The discovery listener is exercised directly in tests/test_discovery.py.
     """
+    rediscovery = mocker.Mock()
+    rediscovery.async_relocate_entry = AsyncMock(return_value=False)
     mocker.patch(
         "custom_components.tuya_local.async_start_discovery",
-        new=AsyncMock(),
+        new=AsyncMock(return_value=rediscovery),
     )
     yield
 
